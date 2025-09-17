@@ -290,13 +290,13 @@
     .hero{
       position:relative;
       margin-top:18px;
-      padding:22px;
+      padding:16px;
       border-radius:calc(var(--radius) * 1.15);
       background:linear-gradient(135deg, var(--hero-grad-1) 0%, var(--hero-grad-2) 58%, var(--hero-grad-3) 100%);
       box-shadow:0 28px 60px rgba(10,132,255,0.18);
       overflow:hidden;
       display:grid;
-      gap:18px;
+      gap:14px;
     }
     .hero::before{
       content:"";
@@ -310,7 +310,7 @@
       position:relative;
       z-index:2;
       display:grid;
-      gap:10px;
+      gap:8px;
       color:var(--hero-text);
     }
     .hero h2{ margin:0; font-size:20px; letter-spacing:.25px; }
@@ -336,6 +336,9 @@
       min-height:160px;
       border-radius:calc(var(--radius) * 0.9);
       overflow:hidden;
+    }
+    @media (max-width:640px){
+      .parallax-scene{ min-height:120px; }
     }
     .parallax-scene .layer{
       position:absolute;
@@ -656,8 +659,6 @@ input,select,textarea{ font-size:16px; border-radius:12px; border:1px solid var(
     </div>
     <section class="hero" id="hero_intro" data-scroll-reveal aria-label="Design-Modus">
       <div class="hero-copy">
-        <h2>Dein Stil. Deine Kontrolle.</h2>
-        <p>Wechsle nahtlos zwischen Light- und Dark-Mode und behalte dabei alle Fristen im Blick.</p>
         <div class="mode-toggle" role="group" aria-label="Modus wählen">
           <button type="button" data-theme-toggle="light"><span>🌞 Light</span></button>
           <button type="button" data-theme-toggle="dark"><span>🌙 Dark</span></button>
