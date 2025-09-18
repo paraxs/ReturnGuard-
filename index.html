@@ -6,14 +6,24 @@
 <script>
 if (!window.__rgErrorBarBound) {
   window.__rgErrorBarBound = true;
+  var __rgErrorTimer = null;
   window.__rgShowBanner = function(msg){
     try{
-      var bar = document.createElement('div');
-      bar.style.position='fixed'; bar.style.left='0'; bar.style.right='0'; bar.style.bottom='0';
-      bar.style.background='#3a171b'; bar.style.color='#ffb3ad'; bar.style.padding='8px 12px';
-      bar.style.borderTop='1px solid #5a2a28'; bar.style.fontSize='12px'; bar.style.zIndex='99999';
-      bar.textContent = msg; document.body.appendChild(bar);
-      setTimeout(function(){ try{ bar.remove(); }catch(e){} }, 8000);
+      var bar = window.__rgErrorBar;
+      if (!bar){
+        bar = document.createElement('div');
+        bar.style.position='fixed'; bar.style.left='0'; bar.style.right='0'; bar.style.bottom='0';
+        bar.style.background='#3a171b'; bar.style.color='#ffb3ad'; bar.style.padding='8px 12px';
+        bar.style.borderTop='1px solid #5a2a28'; bar.style.fontSize='12px'; bar.style.zIndex='99999';
+        bar.style.display='none';
+        bar.setAttribute('role','alert');
+        window.__rgErrorBar = bar;
+        document.body.appendChild(bar);
+      }
+      bar.textContent = msg;
+      bar.style.display='block';
+      if (__rgErrorTimer){ clearTimeout(__rgErrorTimer); }
+      __rgErrorTimer = setTimeout(function(){ try{ bar.style.display='none'; }catch(e){} }, 8000);
     }catch(e){}
   };
   window.addEventListener('error', function(e){
@@ -497,13 +507,25 @@ if (!window.__rgErrorBarBound) {
       var btn = $('#btn_plus') || $('#btn_add');
       var chooser = $('#chooser');
       var close = $('#chooser_close') || qs('[data-close="chooser"]');
-      if(btn && chooser){ btn.addEventListener('click', function(){ chooser.style.display='flex'; }); btn.addEventListener('touchend', function(e){ e.preventDefault(); chooser.style.display='flex'; }); }
+      var openChooser = function(){ chooser.style.display='flex'; };
+      if(btn && chooser && !btn.__rgChooserBound){
+        btn.addEventListener('click', openChooser);
+        btn.addEventListener('touchend', function(e){ e.preventDefault(); openChooser(); });
+        btn.__rgChooserBound = true;
+      }
       var fab = document.getElementById('rgv1-fab');
-      if(fab && chooser){ fab.addEventListener('click', function(){ chooser.style.display='flex'; }); fab.addEventListener('touchend', function(e){ e.preventDefault(); chooser.style.display='flex'; }); }
-      if(close){ close.addEventListener('click', function(){ chooser.style.display='none'; }); }
+      if(fab && chooser && !fab.__rgChooserBound){
+        fab.addEventListener('click', openChooser);
+        fab.addEventListener('touchend', function(e){ e.preventDefault(); openChooser(); });
+        fab.__rgChooserBound = true;
+      }
+      if(close && !close.__rgChooserCloseBound){
+        close.addEventListener('click', function(){ chooser.style.display='none'; });
+        close.__rgChooserCloseBound = true;
+      }
       // Map quick options
       var opts = chooser ? chooser.querySelectorAll('.opt[data-open]') : null;
-      if(opts){ opts.forEach(function(opt){ opt.addEventListener('click', function(){
+      if(opts){ opts.forEach(function(opt){ if (opt.__rgChooserOptionBound) return; opt.addEventListener('click', function(){
         var mode = opt.getAttribute('data-open');
         try{
           if(mode==='manual'){ var el = $('#manual_panel')||$('#editPane')||qs('[data-rg-target="manual"]'); if(el) el.scrollIntoView({behavior:'smooth'}); }
@@ -511,7 +533,7 @@ if (!window.__rgErrorBarBound) {
           if(mode==='ocr'){ var el = $('#ocr_panel')||$('#ocr')||qs('[data-rg-target="ocr"]'); if(el) el.scrollIntoView({behavior:'smooth'}); }
         }catch(e){}
         chooser.style.display='none';
-      }); }); }
+      }); opt.__rgChooserOptionBound = true; }); }
     }catch(e){ showBanner('Early binder failed: '+e.message); }
   });
 })();
@@ -574,20 +596,6 @@ input,select,textarea{ font-size:16px; border-radius:12px; border:1px solid var(
 .rg-ocr-apply:hover{filter:brightness(.98);}
 </style>
 <script>
-(function(){
-  function whenReady(cb){ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', cb); } else { cb(); } }
-  function $(id){ return document.getElementById(id); }
-  whenReady(function(){
-    try{
-      var btn=$('btn_plus'), chooser=$('chooser'), close=$('chooser_close');
-      if(btn && chooser){ btn.addEventListener('click', function(){ chooser.style.display='flex'; }); }
-      if(close){ close.addEventListener('click', function(){ chooser.style.display='none'; }); }
-    }catch(_){}
-  });
-})();
-</script>
-
-<script>
 function __rgTriggerDueCheck(){
   try{
     if (navigator.serviceWorker && navigator.serviceWorker.controller){
@@ -600,7 +608,7 @@ function __rgTriggerDueCheck(){
 
 <script>
 function newId(){
-  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  if (crypto?.randomUUID) return crypto.randomUUID();
   alert("Dein Browser ist zu alt (kein crypto.randomUUID). Bitte aktualisieren.");
   throw new Error("UUID required");
 }
@@ -616,7 +624,11 @@ function newId(){
     () => /^https?:\/\//
   ];
   try { tests.forEach(make => { if (!(make() instanceof RegExp)) throw new Error('no regex'); }); }
-  catch(e){ (window.__rgShowBanner ? __rgShowBanner('Regex-Init fehlgeschlagen: '+e.message) : console.warn('[RG] Regex init failed', e)); }
+  catch(e){
+    const msg = 'Regex-Init fehlgeschlagen: ' + e.message;
+    try{ if (window.__rgShowBanner){ window.__rgShowBanner(msg); } }catch(_){}
+    console.warn('[RG] Regex init failed', e);
+  }
 })();
 </script>
 
@@ -1087,8 +1099,7 @@ function newId(){
 
   const store = {
     async read(){ if (!db) await initDB(); let s = await kvGet('state'); if (!s || !Array.isArray(s.items)) s = {items:[]}; return s; },
-    async write(data){ await kvPut('state', data); __rgTriggerDueCheck();
-if (navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'STATE_MIRROR'}); } }
+    async write(data){ await kvPut('state', data); __rgTriggerDueCheck(); }
   };
   let state = {items:[]};
 
@@ -1137,10 +1148,20 @@ if (navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.se
   // ===== Onboarding chooser =====
   const chooser = $('#chooser'); const btnPlus = $('#btn_plus'); const chooserClose = $('#chooser_close');
   const show = id => { document.querySelectorAll('section[id^="card_"]').forEach(s => s.style.display='none'); $('#'+id).style.display='block'; window.scrollTo({top:0, behavior:'smooth'}); };
-  btnPlus.addEventListener('click', () => { chooser.style.display='flex'; });
-  chooserClose.addEventListener('click', () => { chooser.style.display='none'; });
+  if (btnPlus && !btnPlus.__rgChooserBound){
+    btnPlus.addEventListener('click', () => { chooser.style.display='flex'; });
+    btnPlus.__rgChooserBound = true;
+  }
+  if (chooserClose && !chooserClose.__rgChooserCloseBound){
+    chooserClose.addEventListener('click', () => { chooser.style.display='none'; });
+    chooserClose.__rgChooserCloseBound = true;
+  }
   chooser.addEventListener('click', (e) => { if (e.target === chooser) chooser.style.display='none'; });
-  chooser.querySelectorAll('.opt').forEach(opt => opt.addEventListener('click', () => { chooser.style.display='none'; const t = opt.getAttribute('data-open'); if (t==='cap') show('card_cap'); if (t==='scan') show('card_scan'); if (t==='manual') show('card_manual'); }));
+  chooser.querySelectorAll('.opt').forEach(opt => {
+    if (opt.__rgChooserOptionBound) return;
+    opt.addEventListener('click', () => { chooser.style.display='none'; const t = opt.getAttribute('data-open'); if (t==='cap') show('card_cap'); if (t==='scan') show('card_scan'); if (t==='manual') show('card_manual'); });
+    opt.__rgChooserOptionBound = true;
+  });
   // Default: show manual
   show('card_manual');
 
@@ -1516,11 +1537,11 @@ $('#btn_clear') && $('#btn_clear').addEventListener('click', async () => { if (!
 }
 function escapeICS(s){
   return String(s)
-    .replace(/\\/g, "\\\\")
-    .replace(/\r\n/g, "\\n")
-    .replace(/\n/g, "\\n")
-    .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;");
+    .replace(/\\/g, '\\\\')
+    .replace(/\r\n/g, '\\n')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
 }
 function clearForm(){ $('#f_name').value=''; $('#f_store').value=''; $('#f_date').value=todayISO(); $('#f_return').value='14'; $('#f_warranty').value='24'; $('#f_price').value=''; $('#f_notes').value=''; $('#f_name').focus(); }
 
@@ -1636,6 +1657,9 @@ await store.write(state); render(); alert('Duplikat angelegt.'); });
   }
   function buildICS(it, dueISO){
     const now = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z'; const uidStr = it.id + '@returnguard.local';
+    const dateOnly = (dueISO||'').split('T')[0];
+    const dt = dateOnly.replace(/-/g,'');
+    const dtEnd = addDays(dateOnly, 1).replace(/-/g,'');
     const lines = [ 'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//ReturnGuard//DE','BEGIN:VEVENT','UID:'+uidStr,'DTSTAMP:'+now,'SUMMARY:' + escapeICS('Letzter Tag Rückgabe – ' + it.name),'DTSTART;VALUE=DATE:'+dt,'DTEND;VALUE=DATE:'+dtEnd,'DESCRIPTION:' + escapeICS(['Händler: ' + (it.store||'—'), 'Gekauft am: ' + fmtDate(it.date), 'Notizen: ' + (it.notes||'—')].join('\n')),'END:VEVENT','END:VCALENDAR' ];
     return lines.join('\r\n');
   }
@@ -1692,7 +1716,7 @@ await store.write(state); render(); alert('Duplikat angelegt.'); });
       const meta = document.createElement('div'); meta.className='small muted';
       meta.textContent = (f.type||'datei') + ' • ' + Math.round((f.size||0)/1024) + ' KB • ' + new Date(f.createdAt).toLocaleString();
       info.innerHTML = `<div><strong>${escapeHtml(f.name||'Datei')}</strong></div>`; info.appendChild(meta);
-      const del = document.createElement('button'); del.className='btn danger'; del.textContent='Löschen';
+      const del = document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='Löschen';
       del.addEventListener('click', async ()=>{ if (!confirm('Datei löschen?')) return; await dbDeleteFile(f.id); await renderEvidence(); });
       card.appendChild(th); card.appendChild(info); card.appendChild(del); evList.appendChild(card);
     }
@@ -1752,9 +1776,8 @@ await store.write(state); render(); alert('Duplikat angelegt.'); });
           bgStatus.textContent = 'Background Sync: one-off';
           try{ await r.sync.register('returnguard-sync'); } catch {}
         } else { bgStatus.textContent = 'Background Sync: nicht verfügbar'; }
-        try{ await kvPut('state', state); __rgTriggerDueCheck();
-}catch{}
-        if (navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'CHECK_NOW'}); }
+        try{ await kvPut('state', state); }catch{}
+        __rgTriggerDueCheck();
       });
     }catch(e){
       swStatus.innerHTML = 'Service Worker: <span class="err">'+e.message+'</span>';
@@ -1766,30 +1789,38 @@ await store.write(state); render(); alert('Duplikat angelegt.'); });
     const VERSION = 'v0.9';
     const CACHE = 'returnguard-cache-' + VERSION;
     const PRECACHE = 'rg-v0.9-static';
-const DB_NAME = 'returnguard_data';
+    const DB_NAME = 'returnguard_data';
     const DB_VER = 5;
     const ICON = ${JSON.stringify(iconDataUrl)};
-    self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil((async () => { const cache = await caches.open(CACHE); await cache.addAll(['./']); })()); });
-    self.addEventListener('activate', async (e) => { e.waitUntil((async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.filter(k => k.startsWith('returnguard-cache-') && k !== CACHE).map(k => caches.delete(k)));
-      await self.clients.claim();
-    }()); });
-    self.addEventListener('fetch', async (e) => {
+    self.addEventListener('install', (e) => {
+      self.skipWaiting();
+      e.waitUntil((async () => {
+        const cache = await caches.open(PRECACHE);
+        await cache.addAll(['./','./index.html']);
+      })());
+    });
+    self.addEventListener('activate', (e) => {
+      e.waitUntil((async () => {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(k => k !== CACHE && k !== PRECACHE).map(k => caches.delete(k)));
+        await self.clients.claim();
+      })());
+    });
+    self.addEventListener('fetch', (e) => {
       const url = new URL(e.request.url);
       if (e.request.method !== 'GET' || url.origin !== location.origin) return;
       e.respondWith((async () => {
         const cached = await caches.match(e.request);
         try {
           const resp = await fetch(e.request);
-          const cache = await caches.open(CACHE);
-          cache.put(e.request, resp.clone());
+          const runtime = await caches.open(CACHE);
+          runtime.put(e.request, resp.clone());
           return resp;
         } catch {
           if (cached) return cached;
           throw new Error('Offline und nicht im Cache.');
         }
-      }());
+      })());
     });
 
     function idb(){ return new Promise((res, rej) => {
@@ -1846,7 +1877,7 @@ const DB_NAME = 'returnguard_data';
     self.addEventListener('notificationclick', async (e) => {
       e.notification.close();
       e.waitUntil((async () => {
-        const all = await self.clients.matchAll({ type:'window', includeUncontrolled:true };
+        const all = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
         if (all && all.length){ all[0].focus(); all[0].postMessage({ type:'FOCUS_ITEM', itemId: e.notification.data && e.notification.data.itemId }); }
       })());
     });
@@ -1861,27 +1892,13 @@ const DB_NAME = 'returnguard_data';
     if (perm !== 'granted'){ notifStatus.innerHTML = 'Benachrichtigungen: <span class="warn-txt">'+perm+'</span>'; return; }
     notifStatus.textContent = 'Benachrichtigungen: erlaubt';
     await registerSW();
-    if (navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'CHECK_NOW'}); }
+    __rgTriggerDueCheck();
   });
   btnTestNotif.addEventListener('click', async () => {
     if (!('Notification' in window)) { alert('Notifications nicht unterstützt'); return; }
     if (Notification.permission !== 'granted'){ await btnNotify.click(); if (Notification.permission !== 'granted') return; }
-    const now = todayISO();
-    let notified = (await kvGet('notified')) || {};
-    let updated = false;
-    state.items.forEach(it => {
-      if (it.archived || !it.returnDays) return;
-      const due = addDays(it.date, it.returnDays);
-      const days = daysBetween(now, due);
-      if (days < 0 || days > 3) return;
-      const key = it.id + ':' + due;
-      if (notified[key]) return;
-      try{ (function(){ try{ if (navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'CHECK_NOW'}); } }catch{} })() }catch{}
-      notified[key] = true; updated = true;
-    });
-    if (updated) await kvPut('notified', notified);
+    await registerSW();
     __rgTriggerDueCheck();
-if (navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'CHECK_NOW'}); }
   });
 
   navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', (e) => {
@@ -1892,28 +1909,6 @@ if (navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.se
       if (btn){ btn.scrollIntoView({behavior:'smooth', block:'center'}); btn.classList.add('warn'); setTimeout(() => btn.classList.remove('warn'), 1500); }
     }
   });
-
-  // Light periodic check (uses same IDB 'notified' map)
-  setInterval(async () => {
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    const now = todayISO();
-    let notified = (await kvGet('notified')) || {};
-    let updated = false;
-    const s = await store.read();
-    s.items.forEach(it => {
-      if (it.archived || !it.returnDays) return;
-      const due = addDays(it.date, it.returnDays);
-      const days = daysBetween(now, due);
-      if (days < 0 || days > 3) return;
-      const key = it.id + ':' + due;
-      if (notified[key]) return;
-      try{ (function(){ try{ if (navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'CHECK_NOW'}); } }catch{} })() }catch{}
-      notified[key] = true; updated = true;
-    });
-    if (updated) await kvPut('notified', notified);
-  __rgTriggerDueCheck();
-}, 15*60*1000);
 
   (function initStatus(){
     document.getElementById('btn_install').disabled = true;
@@ -2208,6 +2203,10 @@ const RG_OCR = (() => {
     for (const s of cases){
       const e = escapeICS(s);
       if (e.includes('\r') || /(?<!\\)[,;]/.test(e) || /\\(?![\\n,;])/u.test(e)) { ok = false; break; }
+      const csvCell = `"${String(s).replace(/"/g,'""')}"`;
+      if (!csvCell.startsWith('"') || !csvCell.endsWith('"')) { ok = false; break; }
+      const inner = csvCell.slice(1, -1);
+      if (/"(?!")/.test(inner)) { ok = false; break; }
     }
     if (!ok){
       (window.__rgShowBanner ? __rgShowBanner('ICS/CSV Fuzz: Fehler in Escape-Logik') : console.warn('ICS/CSV Fuzz: failed'));
