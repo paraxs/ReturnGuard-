@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+<script>window.__rgv1_disable=true;</script>
 
 <script>
 if (!window.__rgErrorBarBound) {
@@ -8,6 +9,22 @@ if (!window.__rgErrorBarBound) {
   window.__rgShowBanner = function(msg){
     try{
       var bar = document.createElement('div');
+      bar.style.position='fixed'; bar.style.left='0'; bar.style.right='0'; bar.style.bottom='0';
+      bar.style.background='#3a171b'; bar.style.color='#ffb3ad'; bar.style.padding='8px 12px';
+      bar.style.borderTop='1px solid #5a2a28'; bar.style.fontSize='12px'; bar.style.zIndex='99999';
+      bar.textContent = msg; document.body.appendChild(bar);
+      setTimeout(function(){ try{ bar.remove(); }catch(e){} }, 8000);
+    }catch(e){}
+  };
+  window.addEventListener('error', function(e){
+    var m = e && (e.message || (e.error && e.error.message)) || 'Unbekannter Fehler';
+    window.__rgShowBanner('JS-Fehler: ' + m);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var m = e && (e.reason && (e.reason.message || String(e.reason))) || 'unhandledrejection';
+    window.__rgShowBanner('Promise-Fehler: ' + m);
+  });
+}
 </script>
 
   <meta charset="utf-8" />
@@ -473,9 +490,31 @@ if (!window.__rgErrorBarBound) {
 (function(){
   function whenReady(cb){ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', cb); } else { cb(); } }
   function $(id){ return document.getElementById(id); }
-  function showErrorBanner(msg){
+  function qs(sel){ return document.querySelector(sel); }
+  function showBanner(msg){ try{ (window.__rgShowBanner||console.warn)('[RG]', msg); }catch(e){} }
+  whenReady(function(){
     try{
-      var bar = document.createElement('div');
+      var btn = $('#btn_plus') || $('#btn_add');
+      var chooser = $('#chooser');
+      var close = $('#chooser_close') || qs('[data-close="chooser"]');
+      if(btn && chooser){ btn.addEventListener('click', function(){ chooser.style.display='flex'; }); btn.addEventListener('touchend', function(e){ e.preventDefault(); chooser.style.display='flex'; }); }
+      var fab = document.getElementById('rgv1-fab');
+      if(fab && chooser){ fab.addEventListener('click', function(){ chooser.style.display='flex'; }); fab.addEventListener('touchend', function(e){ e.preventDefault(); chooser.style.display='flex'; }); }
+      if(close){ close.addEventListener('click', function(){ chooser.style.display='none'; }); }
+      // Map quick options
+      var opts = chooser ? chooser.querySelectorAll('.opt[data-open]') : null;
+      if(opts){ opts.forEach(function(opt){ opt.addEventListener('click', function(){
+        var mode = opt.getAttribute('data-open');
+        try{
+          if(mode==='manual'){ var el = $('#manual_panel')||$('#editPane')||qs('[data-rg-target="manual"]'); if(el) el.scrollIntoView({behavior:'smooth'}); }
+          if(mode==='scan'){ var el = $('#scan_panel')||$('#scanner')||qs('[data-rg-target="scan"]'); if(el) el.scrollIntoView({behavior:'smooth'}); }
+          if(mode==='ocr'){ var el = $('#ocr_panel')||$('#ocr')||qs('[data-rg-target="ocr"]'); if(el) el.scrollIntoView({behavior:'smooth'}); }
+        }catch(e){}
+        chooser.style.display='none';
+      }); }); }
+    }catch(e){ showBanner('Early binder failed: '+e.message); }
+  });
+})();
 </script>
 
 
