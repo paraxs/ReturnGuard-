@@ -2202,7 +2202,15 @@ const RG_OCR = (() => {
     let ok = true;
     for (const s of cases){
       const e = escapeICS(s);
-      if (e.includes('\r') || /(?<!\\)[,;]/.test(e) || /\\(?![\\n,;])/u.test(e)) { ok = false; break; }
+      let hasUnescapedDelimiter = false;
+      for (let i = 0; i < e.length; i++){
+        const ch = e[i];
+        if (ch !== ',' && ch !== ';') continue;
+        let slashCount = 0;
+        for (let j = i - 1; j >= 0 && e[j] === '\\'; j--){ slashCount++; }
+        if (slashCount % 2 === 0){ hasUnescapedDelimiter = true; break; }
+      }
+      if (e.includes('\r') || hasUnescapedDelimiter || /\\(?![\\n,;])/u.test(e)) { ok = false; break; }
       const csvCell = `"${String(s).replace(/"/g,'""')}"`;
       if (!csvCell.startsWith('"') || !csvCell.endsWith('"')) { ok = false; break; }
       const inner = csvCell.slice(1, -1);
