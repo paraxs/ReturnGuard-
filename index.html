@@ -1147,10 +1147,24 @@ function newId(){
 
   // ===== Onboarding chooser =====
   const chooser = $('#chooser'); const btnPlus = $('#btn_plus'); const chooserClose = $('#chooser_close');
+  const fab = document.getElementById('rgv1-fab');
   const show = id => { document.querySelectorAll('section[id^="card_"]').forEach(s => s.style.display='none'); $('#'+id).style.display='block'; window.scrollTo({top:0, behavior:'smooth'}); };
+  const openChooser = () => { chooser.style.display='flex'; };
   if (btnPlus && !btnPlus.__rgChooserBound){
-    btnPlus.addEventListener('click', () => { chooser.style.display='flex'; });
+    btnPlus.addEventListener('click', openChooser);
     btnPlus.__rgChooserBound = true;
+  }
+  if (fab && !fab.__rgChooserBound){
+    fab.addEventListener('touchend', (event) => {
+      event.preventDefault();
+      fab.__rgChooserLastTouch = Date.now();
+      openChooser();
+    }, { passive: false });
+    fab.addEventListener('click', () => {
+      if (fab.__rgChooserLastTouch && Date.now() - fab.__rgChooserLastTouch < 500) return;
+      openChooser();
+    });
+    fab.__rgChooserBound = true;
   }
   if (chooserClose && !chooserClose.__rgChooserCloseBound){
     chooserClose.addEventListener('click', () => { chooser.style.display='none'; });
